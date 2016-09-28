@@ -20,7 +20,7 @@
 
 #define STREAM_TASK_QUE_SIZE 4096
 
-enum StreamTaskType { StreamTaskType_Kernel, StreamTaskType_Memcpy, StreamTaskType_Synchronize, StreamTaskType_Destroy};
+enum StreamTaskType { StreamTaskType_Kernel, StreamTaskType_Memcpy, StreamTaskType_Synchronize, StreamTaskType_Destroy, StreamTaskType_EventRecord};
 
 class StreamTask {
 public:
@@ -102,6 +102,7 @@ public:
 	void MemcpyAsync(void* dptr, size_t count, cudaMemcpyKind kind, int threadId);
 	void LaunchKernel(dim3 gridDim, dim3 blockDim, size_t sharedMem, cudaStream_t stream, size_t argBufSize, void* argBuf, CUfunction func);
 	cudaError_t Synchronize();
+	cudaError_t EventRecord(cudaEvent_t event);
 	void Destroy();
 	int GetSrcProc() { return m_SrcProc; }
 	enum GC_StreamFlag GetStreamFlag() { return m_StreamFlag; }
@@ -115,7 +116,8 @@ private:
 
 	cudaError_t m_LastStreamError;
 	sem_t m_CompleteSyncCount;
-
+	sem_t m_CompleteRecordCount;
+	cudaEvent_t m_event;
 
 	bool m_StreamDestroyStatus;
 

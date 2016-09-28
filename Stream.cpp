@@ -19,6 +19,7 @@ void* _StreamTaskSubmitThread(void* arg) {
 	StreamTask* taskp;
 	StreamTaskKernel* kernelTaskp;
 	StreamTaskMemcpy* memcpyTaskp;
+	StreamTaskEventRecord* eventRecordTaskp;
 	cudaMemcpyKind kind;
 	streamObj->m_HostRecvBufQueFront = 0;
 	streamObj->m_HostSendBufQueRear = 0;
@@ -61,6 +62,18 @@ void* _StreamTaskSubmitThread(void* arg) {
 			cudaStreamDestroy(streamObj->m_Stream);
 			streamFlag = false;
 			break;
+		case StreamTaskType_EventRecord:
+			cudaStream_t stream;
+			if(streamObj->m_StreamFlag == NullStreamFlag)
+				stream = NULL;
+			else
+				stream = streamObj->m_Stream;
+			cudaEvent_t event = streamObj->m_event;
+			streamObj->m_LastStreamError = cudaEventRecord(event,stream);
+			sem_post(&streamObj->m_CompleteRecordCount);
+			delete taskp;
+			break;
+			
 		}
 	}
 	return NULL;
@@ -83,6 +96,7 @@ Stream::Stream(cudaStream_t stream, int srcProc, MPI_Comm comm, int tag, enum GC
 {
 	// TODO Auto-generated constructor stub
 	sem_init(&m_CompleteSyncCount, 0, 0);
+	sem_init(&m_CompleteRecordCount, 0, 0);
 #ifndef _NO_PIPELINE
 	for(int i = 0; i < HOST_BUFFER_COUNT; i++) {
 		cuda_error( cudaMallocHost((void **)(m_HostRecvBufQue + i), HOST_BUFFER_INIT_SIZE) );
@@ -164,6 +178,15 @@ cudaError_t Stream::Synchronize() {
 	//printf("Stream Synchronize end on %d\n",globalDeviceId);
 	return m_LastStreamError;
 }
+
+cudaError_t Stream::EventRecord(cudaEvent_t event) {
+	StreamTask* eventRecordTask = new StreamTaskEventRecord(StreamTaskType_EventRecord);
+	m_event = event;
+	TaskPush((StreamTask*)eventRecordTask);
+	sem_wait(&m_CompleteRecordCount);
+	return m_LastStreamError;
+}
+
 
 void Stream::Destroy() {
 	StreamTask* destroyTask = new StreamTask(StreamTaskType_Destroy);

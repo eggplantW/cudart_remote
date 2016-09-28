@@ -393,7 +393,15 @@ void RemoteAssistant::CudaEventDestroy(){
 
 void RemoteAssistant::CudaEventRecord(){
 	CudaEventRecordMsg_t* msg = (CudaEventRecordMsg_t*)m_Buffer;
-	cudaError_t cudaResu = cudaEventRecord(msg->event,msg->stream);
+	cudaError_t cudaResu;
+	map<cudaStream_t, Stream*>::iterator streamIt = m_Streams.find(msg->stream);
+	if(streamIt == m_Streams.end())
+	{
+		//printf("didn't find stream %x\n",msg->stream);
+		cudaResu = cudaErrorInvalidResourceHandle;
+	}
+	else 
+		cudaResu = streamIt->second->EventRecord(msg->event);
 	mpi_error( MPI_Send(&cudaResu, sizeof(cudaError_t), MPI_BYTE, m_Status.MPI_SOURCE, msg->threadId << 16, m_HostComm) );
 }
 
