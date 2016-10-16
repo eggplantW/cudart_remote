@@ -10,6 +10,7 @@
 #include "Types.h"
 #include <iostream>
 #include <math.h>
+#include <sys/time.h>
 #include "RemoteAssistant.h"
 extern int globalDeviceId;
 void* _StreamTaskSubmitThread(void* arg) {
@@ -19,7 +20,6 @@ void* _StreamTaskSubmitThread(void* arg) {
 	StreamTask* taskp;
 	StreamTaskKernel* kernelTaskp;
 	StreamTaskMemcpy* memcpyTaskp;
-	StreamTaskEventRecord* eventRecordTaskp;
 	cudaMemcpyKind kind;
 	streamObj->m_HostRecvBufQueFront = 0;
 	streamObj->m_HostSendBufQueRear = 0;
@@ -46,7 +46,7 @@ void* _StreamTaskSubmitThread(void* arg) {
 			delete memcpyTaskp;
 			break;
 		case StreamTaskType_Synchronize:
-			//printf("StreamTask streamsync start on\n");
+		{	//printf("StreamTask streamsync start on\n");
 			cudaStream_t stream;
 			if(streamObj->m_StreamFlag == NullStreamFlag)
 				stream = NULL;
@@ -58,11 +58,13 @@ void* _StreamTaskSubmitThread(void* arg) {
 			sem_post(&streamObj->m_CompleteSyncCount);
 			delete taskp;
 			break;
+		}
 		case StreamTaskType_Destroy:
 			cudaStreamDestroy(streamObj->m_Stream);
 			streamFlag = false;
 			break;
 		case StreamTaskType_EventRecord:
+		{
 			cudaStream_t stream;
 			if(streamObj->m_StreamFlag == NullStreamFlag)
 				stream = NULL;
@@ -73,7 +75,7 @@ void* _StreamTaskSubmitThread(void* arg) {
 			sem_post(&streamObj->m_CompleteRecordCount);
 			delete taskp;
 			break;
-			
+		}	
 		}
 	}
 	return NULL;
@@ -180,7 +182,7 @@ cudaError_t Stream::Synchronize() {
 }
 
 cudaError_t Stream::EventRecord(cudaEvent_t event) {
-	StreamTask* eventRecordTask = new StreamTaskEventRecord(StreamTaskType_EventRecord);
+	StreamTask* eventRecordTask = new StreamTask(StreamTaskType_EventRecord);
 	m_event = event;
 	TaskPush((StreamTask*)eventRecordTask);
 	sem_wait(&m_CompleteRecordCount);
@@ -219,12 +221,18 @@ void Stream::MemcpyHostToDevice( StreamTaskMemcpy* memcpyTask ) {
 	void* dptr = memcpyTask->GetPtr();
 	m_threadId = memcpyTask->GetThreadId();
 	buf = (void *)malloc(memcpyTask->GetCount());
-	//printf("Stream before recv\n");
+	//printf("Stream before recv buf=%lx,count=%lx,srcProc=%d,tag=%lx\n",buf,memcpyTask->GetCount(),m_SrcProc,m_threadId<<16|m_MsgTag);
 	mpi_error( MPI_Recv(buf, memcpyTask->GetCount(), MPI_BYTE, m_SrcProc,m_threadId << 16 | m_MsgTag , m_Comm, MPI_STATUS_IGNORE) );
 	//printf("Stream after recv\n");
+	timeval start_time,end_time;
+	gettimeofday(&start_time,0);
 	cudaMemcpyAsync(dptr, buf, memcpyTask->GetCount(), cudaMemcpyHostToDevice, stream); 
-	//printf("Stream memcpyasync\n");
 	cuda_error( cudaStreamSynchronize(stream) );
+	gettimeofday(&end_time,0);
+	double timeUse=(double)1000000*(end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec);
+	double bandwith = (double)memcpyTask->GetCount() * 1000000 / (1 << 20) / timeUse;
+
+	printf("memcpyHostToDevice size=%d bandWith=%f time=%f\n",memcpyTask->GetCount(),bandwith,timeUse);
 	//printf("Stream sync\n");
 	free(buf);
 	//printf("Stream memcpy host to device on %d end\n",globalDeviceId);
@@ -247,8 +255,18 @@ void Stream::MemcpyDeviceToHost( StreamTaskMemcpy* memcpyTask ) {
 	void* buf;
 	m_threadId = memcpyTask->GetThreadId();
 	buf = (void *)malloc(memcpyTask->GetCount()) ;
+	cudaEvent_t start,end;
+	cudaEventCreate(&start);
+	cudaEventCreate(&end);
+	cudaEventRecord(start,stream);
 	cudaMemcpyAsync(buf,memcpyTask->GetPtr(), memcpyTask->GetCount(),cudaMemcpyDeviceToHost,stream);
 	cudaStreamSynchronize(stream);
+	cudaEventRecord(end,stream);
+	cudaEventSynchronize(end);
+	float ms = 0.0f;
+	cudaEventElapsedTime(&ms,start,end);
+	printf("memcpyDeviceToHost size=%d time=%.3f\n",memcpyTask->GetCount(),ms);
+
 	MPI_Send(buf,memcpyTask->GetCount(),MPI_BYTE,m_SrcProc,m_threadId << 16 | m_MsgTag,m_Comm);
 	free(buf);
 }

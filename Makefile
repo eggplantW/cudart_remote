@@ -223,7 +223,7 @@ libcudart_remote.so: cudart_remote.cpp
 	#$(EXEC) mkdir -p ../lib
 	#$(EXEC) cp $@ ../lib
 	scp $@ gpu-cluster-1:/home/run/cuda-workplace/cudart_remote/src/
-	scp $@ gpu-cluster-3:/home/run/cuda-workplace/cudart_remote/src/
+	#scp $@ gpu-cluster-3:/home/run/cuda-workplace/cudart_remote/src/
 	scp $@ gpu-cluster-4:/home/run/cuda-workplace/cudart_remote/src/
 
 Stream.o: Stream.cpp Stream.h Defines.h
@@ -234,7 +234,7 @@ RemoteAssistant.o: RemoteAssistant.cpp RemoteAssistant.h Defines.h
 RemoteAssistant: RemoteAssistant.o Stream.o
 	$(EXEC) nvcc $(REMOTEASSISTANT_DEBUG) -ccbin mpicxx -Xlinker -lcuda -Xlinker -lpthread -o $@ $+
 	scp $@ gpu-cluster-1:/home/run/cuda-workplace/cudart_remote/src/
-	scp $@ gpu-cluster-3:/home/run/cuda-workplace/cudart_remote/src/
+	#scp $@ gpu-cluster-3:/home/run/cuda-workplace/cudart_remote/src/
 	scp $@ gpu-cluster-4:/home/run/cuda-workplace/cudart_remote/src/
 
 vectorAdd: vectorAdd.o matrixMulti.o SymbolTest.o
@@ -242,7 +242,7 @@ vectorAdd: vectorAdd.o matrixMulti.o SymbolTest.o
 	#$(EXEC) mkdir -p ../../bin/$(OS_ARCH)/$(OSLOWER)/$(TARGET)$(if $(abi),/$(abi))
 	#$(EXEC) cp $@ ../../bin/$(OS_ARCH)/$(OSLOWER)/$(TARGET)$(if $(abi),/$(abi))
 	scp $@ gpu-cluster-1:/home/run/cuda-workplace/cudart_remote/src/
-	scp $@ gpu-cluster-3:/home/run/cuda-workplace/cudart_remote/src/
+	#scp $@ gpu-cluster-3:/home/run/cuda-workplace/cudart_remote/src/
 	scp $@ gpu-cluster-4:/home/run/cuda-workplace/cudart_remote/src/
 
 run:

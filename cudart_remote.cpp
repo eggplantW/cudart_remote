@@ -493,8 +493,8 @@ extern "C"
 
 		for(int i = 0; i < (GC_DeviceCount / GC_NodeCount); i++) 
 		{
-			//printf("send fini %d\n",i);
-			mpi_error( MPI_Send(&msg, sizeof(msg), MPI_BYTE, GC_DeviceList[i], NullTag, GC_DeviceComm) );
+			printf("send fini %d\n",i);
+			mpi_error( MPI_Ssend(&msg, sizeof(msg), MPI_BYTE, GC_DeviceList[i], NullTag, GC_DeviceComm) );
 		}
 		/*  int flag;
 		for(int i = 0; i < (GC_DeviceCount / GC_NodeCount); i++) 
@@ -502,6 +502,8 @@ extern "C"
 			mpi_error( MPI_Recv(&flag, sizeof(int), MPI_BYTE, GC_DeviceList[i], NullTag, GC_DeviceComm,MPI_STATUS_IGNORE) );
 		}
 		*/
+		//int flag;
+		//mpi_error(MPI_Recv(&flag,sizeof(int),MPI_BYTE,GC_DeviceList[0],NullTag,GC_DeviceComm,MPI_STATUS_IGNORE));
 		//mpi_error( MPI_Recv(NULL, 0, MPI_BYTE, 0, 0, GC_DeviceComm, MPI_STATUS_IGNORE) );
 		//printf("0");
 		//sleep(10);
@@ -1019,8 +1021,9 @@ extern "C"
 			dst = (void *)(dstP & 0x0000ffffffffffff);
 			CudaMemcpyAsyncMsg_t msg(dst, count, kind, stream, threadId);
 			mpi_error( MPI_Send(&msg, sizeof(msg), MPI_BYTE, GC_DeviceList[device], NullTag, GC_DeviceComm) );
-			
+			//printf("memcpy host to src=%lx device=%d count=%lx,tag=%lx\n",_src,GC_DeviceList[device],count,threadId<<16|streamTag);	
 			MPI_Send(_src,count,MPI_BYTE,GC_DeviceList[device],threadId<<16|streamTag,GC_DeviceComm);
+			//printf("memcpy host to device send fini\n");
 		}
 		else if(kind == cudaMemcpyDeviceToHost) {
 			if(srcP >> 63 == 0 || dstP >> 63 != 0)
@@ -1471,13 +1474,13 @@ extern "C"
 		pthread_mutex_lock(&GC_ThreadInfoMutex);
 		GC_ThreadInfo[pid].cudaLastError = amsg.status;
 		pthread_mutex_unlock(&GC_ThreadInfoMutex);
-		printf("cudaEventCreate finish event = %x, status = %d\n",*event,amsg.status);
+		//printf("cudaEventCreate finish event = %x, status = %d\n",*event,amsg.status);
 		return amsg.status;
 	}
 	
 	__host__ cudaError_t cudaEventDestroy (cudaEvent_t event)
 	{
-		printf("cudaEventDestroy event = %x\n",event);
+		//printf("cudaEventDestroy event = %x\n",event);
 		pthread_t pid= pthread_self();
 		pthread_mutex_lock(&GC_ThreadInfoMutex)	;
 		threadInfoTest(pid);
@@ -1551,7 +1554,7 @@ extern "C"
 		}
 		pthread_mutex_unlock(&GC_StreamTagMutex);
 
-		printf("cudaEventRecord event = %x,stream = %x\n",event,stream);
+		//printf("cudaEventRecord event = %x,stream = %x\n",event,stream);
 		CudaEventRecordMsg_t msg(threadId,event,stream);
 		mpi_error( MPI_Send(&msg, sizeof(msg), MPI_BYTE, dest, NullTag, GC_DeviceComm) );
 		cudaError_t cudaErr;
@@ -1560,7 +1563,7 @@ extern "C"
 		pthread_mutex_lock(&GC_ThreadInfoMutex);
 		GC_ThreadInfo[pid].cudaLastError = cudaErr;
 		pthread_mutex_unlock(&GC_ThreadInfoMutex);
-		printf("cudaEventRecord status = %d\n",cudaErr);
+		//printf("cudaEventRecord status = %d\n",cudaErr);
 		return cudaErr;
 	}
 
@@ -1588,7 +1591,7 @@ extern "C"
 		}
 		pthread_mutex_unlock(&GC_EventTagMutex);
 
-		printf("cudaEventSynchronize event = %x\n",event);
+		//printf("cudaEventSynchronize event = %x\n",event);
 		CudaEventSynchronizeMsg_t msg(threadId,event);
 		mpi_error( MPI_Send(&msg, sizeof(msg), MPI_BYTE, dest, NullTag, GC_DeviceComm) );
 		cudaError_t cudaErr;
@@ -1597,7 +1600,7 @@ extern "C"
 		pthread_mutex_lock(&GC_ThreadInfoMutex);
 		GC_ThreadInfo[pid].cudaLastError = cudaErr;
 		pthread_mutex_unlock(&GC_ThreadInfoMutex);
-		printf("cudaEventSynchronize status = %d\n",cudaErr);
+		//printf("cudaEventSynchronize status = %d\n",cudaErr);
 		return cudaErr;
 	}
 	__host__ cudaError_t cudaEventElapsedTime (float *ms,cudaEvent_t start, cudaEvent_t end)
@@ -1642,7 +1645,7 @@ extern "C"
 		pthread_mutex_lock(&GC_ThreadInfoMutex);
 		GC_ThreadInfo[pid].cudaLastError = amsg.status;
 		pthread_mutex_unlock(&GC_ThreadInfoMutex);
-		printf("cudaEventElapsedTime start = %x,end = %x,ms = %lf,status = %d\n",start,end,amsg.ms,amsg.status);
+		//printf("cudaEventElapsedTime start = %x,end = %x,ms = %lf,status = %d\n",start,end,amsg.ms,amsg.status);
 		return amsg.status;
 	}
 }

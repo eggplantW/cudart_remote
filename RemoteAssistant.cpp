@@ -70,10 +70,11 @@ RemoteAssistant::~RemoteAssistant() {
 	for(map<cudaStream_t, Stream*>::iterator it = m_Streams.begin(); it != m_Streams.end(); it++)
 		delete it->second;
 	//printf("~RemoteAssistant:2 %d\n",m_LocalNodeId);
-	MPI_Barrier(MPI_COMM_WORLD);
+	//MPI_Barrier(MPI_COMM_WORLD);
 	//printf("~RemoteAssistant:3 %d\n",m_LocalNodeId);
+	//int flag = 0;
 	//if(m_LocalNodeId == 0)
-	//	mpi_error( MPI_Send(NULL, 0, MPI_BYTE, 0, 0, m_HostComm) );
+	//	mpi_error( MPI_Send(&flag, sizeof(int), MPI_BYTE, 0, 0, m_HostComm) );
 	//sleep(100);
 	MPI_Finalize();
 	//printf("~RemoteAssistant:4 %d\n",m_LocalNodeId);
@@ -418,7 +419,7 @@ void RemoteAssistant::CudaEventElapsedTime(){
 	cudaError_t cudaResu = cudaEventElapsedTime(&ms,msg->start,msg->end);
 	CudaEventElapsedTimeAckMsg_t amsg;
 	amsg.ms = ms;
-	printf("RemoteAssistant cudaEventElapsedTime ms = %lf\n",amsg.ms);
+	//printf("RemoteAssistant cudaEventElapsedTime ms = %lf\n",amsg.ms);
 	amsg.status = cudaResu;
 	mpi_error( MPI_Send(&amsg, sizeof(amsg), MPI_BYTE, m_Status.MPI_SOURCE, msg->threadId << 16, m_HostComm) );
 }
@@ -508,7 +509,7 @@ void RemoteAssistant::Run() {
 		case CudaEventRecordTag: CudaEventRecord();break;
 		case CudaEventSynchronizeTag: CudaEventSynchronize();break;
 		case CudaEventElapsedTimeTag: CudaEventElapsedTime();break;
-		case NullTag:	runFlag = false;	break;
+		case NullTag:	runFlag = false;		break;
 		default:;
 		}
 
